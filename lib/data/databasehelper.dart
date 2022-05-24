@@ -7,24 +7,6 @@ class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper.internal();
   CommonUtils commonUtils = CommonUtils();
 
-  List<Map<String, dynamic>> chatData = [
-    {
-      "description": 'Bob',
-    },
-    {
-      "description": 'aaa',
-    },
-    {
-      "description": 'dfdf',
-    },
-    {
-      "description": 'rererw',
-    },
-    {
-      "description": 'ewrew',
-    },
-  ];
-
   factory DatabaseHelper() => _instance;
   Database? _db;
 
@@ -36,6 +18,7 @@ class DatabaseHelper {
 
   DatabaseHelper.internal();
 
+//initalize the DB
   initDb() async {
     Sqflite.setDebugModeOn(true);
     String dbPath = await getDatabasesPath();
@@ -45,12 +28,13 @@ class DatabaseHelper {
     return theDb;
   }
 
+// Creating the tables
   Future _onCreate(Database db, int version) async {
     await db.execute(commonUtils.queryBuilder(
         "CREATE", TableObjects.tbchatHistory, TableObjects.attrlabor));
-    saveChatResult(chatData);
   }
 
+//inserting the bulk chat message
   Future saveChatResult(dynamic chatResults) async {
     var dbClient = await db;
     try {
@@ -61,26 +45,54 @@ class DatabaseHelper {
         }
       }
     } catch (exception, stacktrace) {
-      print("the exception is $exception ad trace is $stacktrace");
+      print("exception in saveChatResult $exception and trace is $stacktrace");
     }
   }
 
-  Future<List> getChatData() async {
-    var dbClient = await db;
-    try {
-      List contractList = await dbClient!.rawQuery(
-          "select * from ${TableObjects.tbchatHistory} order by tchatid desc");
-
-      return contractList;
-    } catch (exception, stacktrace) {
-      print("the exception is $exception ad trace is $stacktrace");
-
-      return [];
-    }
-  }
+  //insert while sending messages
 
   Future insertChatMessage(Map<String, dynamic> chatData) async {
+    try {
+      var dbClient = await db;
+      dbClient!.insert(TableObjects.tbchatHistory, chatData);
+    } catch (exception, stacktrace) {
+      print(
+          "exception in insertChatMessage $exception and trace is $stacktrace");
+    }
+  }
+
+//getting total message count
+  Future<int> getmessageCount() async {
+    try {
+      var dbClient = await db;
+      late List getChatList;
+
+      getChatList = await dbClient!
+          .rawQuery("select count(*) as chatcount from tchathistory");
+      return getChatList[0]['chatcount'];
+    } catch (exception, stacktrace) {
+      print("exception in getChatCount $exception and trace is $stacktrace");
+      return 0;
+    }
+  }
+
+//Fetch the chat message based on pagination
+  Future<List<Map<String, dynamic>>> fetchChatMessage(
+      {required int limit}) async {
     var dbClient = await db;
-    dbClient!.insert(TableObjects.tbchatHistory, chatData);
+    try {
+      List fetchedChatMessage = [];
+      late List<Map<String, dynamic>> resultList = <Map<String, dynamic>>[];
+
+      fetchedChatMessage = await dbClient!.rawQuery(
+          "select * from tchathistory order by tchatid desc limit $limit ,20");
+      for (int i = 0; i < fetchedChatMessage.length; i++) {
+        resultList.add(Map.from(fetchedChatMessage[i]));
+      }
+      return resultList;
+    } catch (exception, stacktrace) {
+      print("exception in getChatCount $exception and trace is $stacktrace");
+      return [];
+    }
   }
 }

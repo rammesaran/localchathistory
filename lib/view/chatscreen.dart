@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:localchathistory/data/databasehelper.dart';
+import 'package:intl/intl.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -11,9 +12,28 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   DatabaseHelper databaseHelper = DatabaseHelper();
   List chatData = [];
+  List<Map<String, dynamic>> initalchatData = [
+    {
+      "description": 'Bob',
+    },
+    {
+      "description": 'aaa',
+    },
+    {
+      "description": 'dfdf',
+    },
+    {
+      "description": 'rererw',
+    },
+    {
+      "description": 'ewrew',
+    },
+  ];
   TextEditingController txtController = TextEditingController();
   bool isDataLoading = false;
   ScrollController? scrollController;
+  int totalchatCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -23,11 +43,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void handleScrolling() {
-    if (scrollController!.offset >=
+    if (scrollController!.position.pixels ==
         scrollController!.position.maxScrollExtent) {
-      print("scroll handling called");
-      setState(() {
-        getChatData();
+      getRecentChatList(chatData.length).then((chatvalue) {
+        setState(() {
+          chatData.addAll(chatvalue);
+        });
       });
     }
   }
@@ -39,14 +60,27 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   getChatData() async {
-    setState(() {
-      isDataLoading = true;
-    });
-    chatData = await databaseHelper.getChatData();
-    setState(() {
-      isDataLoading = false;
-    });
-    print("the value of chat data is $chatData");
+    await getchatCount();
+    List<Map<String, dynamic>> chatData = await getRecentChatList(0);
+    chatData = chatData;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> getchatCount() async {
+    totalchatCount = await databaseHelper.getmessageCount();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentChatList(int offset) async {
+    List<Map<String, dynamic>> chatlist = await databaseHelper.fetchChatMessage(
+      limit: offset,
+    );
+
+    return chatlist;
   }
 
   @override
@@ -55,7 +89,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
     insertChatRecord(Map<String, dynamic> messageData) {
       databaseHelper.insertChatMessage(messageData).then((value) {
-        print("the helper is $value");
         if (value == null) {
           getChatData();
           setState(() {});
@@ -63,8 +96,15 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
-    void _scrollDown() {
-      scrollController!.jumpTo(scrollController!.position.maxScrollExtent);
+    //Used to jump to bottom of the list
+
+    void scrollToBottom() {
+      final bottomOffset = scrollController!.position.minScrollExtent;
+      scrollController!.animateTo(
+        bottomOffset,
+        duration: const Duration(milliseconds: 1000),
+        curve: Curves.easeInOut,
+      );
     }
 
     Widget _buildBottomSection() {
@@ -97,10 +137,13 @@ class _ChatScreenState extends State<ChatScreen> {
                         if (txtController.text.isNotEmpty) {
                           Map<String, dynamic> enteredMessage = {
                             "description": txtController.text,
+                            "createdon": DateFormat.jm()
+                                .format(DateTime.now())
+                                .toString(),
                           };
                           insertChatRecord(enteredMessage);
+                          scrollToBottom();
                           txtController.clear();
-                          _scrollDown();
                         }
                       }),
                 ],
@@ -112,7 +155,17 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        centerTitle: true,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0.0,
+        title: const Text(
+          "Chat Message",
+          style: TextStyle(
+            color: Colors.black,
+          ),
+        ),
+      ),
       body: Column(
         children: [
           Expanded(
@@ -125,46 +178,41 @@ class _ChatScreenState extends State<ChatScreen> {
                       controller: scrollController,
                       itemCount: chatData.length,
                       itemBuilder: (context, index) {
-
                         return Container(
-            margin: const EdgeInsets.only(top: 10),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                 
-                    const SizedBox(
-                      width: 10,
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.6),
-                      decoration: BoxDecoration(
-                          color:  Colors.grey[200],
-                          borderRadius: const BorderRadius.only(
-                            topLeft: const Radius.circular(16),
-                            topRight: Radius.circular(16),
-                            bottomLeft: Radius.circular( 12 ),
-                            bottomRight: Radius.circular( 12),
-                          )),
-                      child: Text(
-                        chatData[index]['description'],
-                        style: TextStyle(
-                            color:  Colors.grey[800]),
-                      ),
-                    ),
-                  ],
-                ),
-           
-              ],
-            ),
-          );
-
-                  
+                          margin: const EdgeInsets.only(top: 10),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const SizedBox(
+                                    width: 10,
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    constraints: BoxConstraints(
+                                        maxWidth:
+                                            MediaQuery.of(context).size.width *
+                                                0.6),
+                                    decoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(16),
+                                          topRight: Radius.circular(16),
+                                          bottomLeft: Radius.circular(12),
+                                          bottomRight: Radius.circular(12),
+                                        )),
+                                    child: Text(
+                                      "${chatData[index]['description']}   ${chatData[index]['createdon']} ",
+                                      style: TextStyle(color: Colors.grey[800]),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
                       })),
           Align(
             alignment: Alignment.bottomCenter,
@@ -175,4 +223,3 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-
