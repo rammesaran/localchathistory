@@ -2,17 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:localchathistory/data/databasehelper.dart';
+import 'package:localchathistory/utils/commonutlis.dart';
 import 'package:localchathistory/view/chatscreen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    CommonUtils.sharedPreferences = prefs;
 
     /// instance of databasehelper
     DatabaseHelper databaseHelper = DatabaseHelper();
 
     /// accessing db
-    databaseHelper.db;
+    await databaseHelper.db;
 
     runApp(
       const MyApp(),

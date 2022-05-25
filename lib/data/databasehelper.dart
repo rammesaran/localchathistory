@@ -1,3 +1,4 @@
+import 'package:localchathistory/data/sharedprefrenceconst.dart';
 import 'package:localchathistory/data/tableobjects.dart';
 import 'package:localchathistory/utils/commonutlis.dart';
 import 'package:sqflite/sqflite.dart';
@@ -32,6 +33,8 @@ class DatabaseHelper {
   Future _onCreate(Database db, int version) async {
     await db.execute(commonUtils.queryBuilder(
         "CREATE", TableObjects.tbchatHistory, TableObjects.attrlabor));
+    await CommonUtils.sharedPreferences
+        .setInt(SharedPrefrenceConstant.isDbCreated, 1);
   }
 
 //inserting the bulk chat message

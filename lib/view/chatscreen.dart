@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:localchathistory/data/chatdata.dart';
 import 'package:localchathistory/data/databasehelper.dart';
 import 'package:intl/intl.dart';
+import 'package:localchathistory/data/sharedprefrenceconst.dart';
+import 'package:localchathistory/utils/commonutlis.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -12,23 +15,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   DatabaseHelper databaseHelper = DatabaseHelper();
   List chatData = [];
-  List<Map<String, dynamic>> initalchatData = [
-    {
-      "description": 'Bob',
-    },
-    {
-      "description": 'aaa',
-    },
-    {
-      "description": 'dfdf',
-    },
-    {
-      "description": 'rererw',
-    },
-    {
-      "description": 'ewrew',
-    },
-  ];
+
   TextEditingController txtController = TextEditingController();
   bool isDataLoading = false;
   ScrollController? scrollController;
@@ -39,7 +26,36 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     scrollController = ScrollController()..addListener(handleScrolling);
 
-    getChatData();
+    isFetchLoadData();
+  }
+
+  isFetchLoadData() async {
+    setState(() {
+      isDataLoading = true;
+    });
+    int? isDbCreated = CommonUtils.sharedPreferences
+        .getInt(SharedPrefrenceConstant.isDbCreated);
+
+    if (isDbCreated != null && isDbCreated == 1) {
+      await databaseHelper.saveChatResult(ChatData.chatData);
+      await CommonUtils.sharedPreferences
+          .setInt(SharedPrefrenceConstant.isDbCreated, 0);
+
+      getChatData();
+    } else {
+      getChatData();
+    }
+  }
+
+  getChatData() async {
+    await getchatCount();
+    List<Map<String, dynamic>> _chatDatas = await getRecentChatList(0);
+    chatData = _chatDatas;
+    if (mounted) {
+      setState(() {
+        isDataLoading = false;
+      });
+    }
   }
 
   void handleScrolling() {
@@ -53,19 +69,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getRecentChatList(int offset) async {
+    List<Map<String, dynamic>> chatlists =
+        await databaseHelper.fetchChatMessage(
+      limit: offset,
+    );
+
+    return chatlists;
+  }
+
   @override
   void dispose() {
     scrollController!.removeListener(handleScrolling);
     super.dispose();
-  }
-
-  getChatData() async {
-    await getchatCount();
-    List<Map<String, dynamic>> chatData = await getRecentChatList(0);
-    chatData = chatData;
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   Future<void> getchatCount() async {
@@ -75,85 +91,75 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getRecentChatList(int offset) async {
-    List<Map<String, dynamic>> chatlist = await databaseHelper.fetchChatMessage(
-      limit: offset,
-    );
+  insertChatRecord(Map<String, dynamic> messageData) {
+    databaseHelper.insertChatMessage(messageData).then((value) {
+      if (value == null) {
+        getChatData();
+        setState(() {});
+      }
+    });
+  }
 
-    return chatlist;
+  //Used to jump to bottom of the list
+
+  void scrollToBottom() {
+    final bottomOffset = scrollController!.position.minScrollExtent;
+    scrollController!.animateTo(
+      bottomOffset,
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Widget _buildBottomSection() {
+    const double minValue = 8.0;
+
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Container(
+            height: 52,
+            margin: const EdgeInsets.all(minValue),
+            padding: const EdgeInsets.symmetric(horizontal: minValue),
+            decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.all(Radius.circular(minValue * 4))),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: TextField(
+                    keyboardType: TextInputType.text,
+                    controller: txtController,
+                    decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: "Type your message"),
+                    autofocus: false,
+                  ),
+                ),
+                IconButton(
+                    icon: const Icon(Icons.send),
+                    onPressed: () {
+                      if (txtController.text.isNotEmpty) {
+                        Map<String, dynamic> enteredMessage = {
+                          "description": txtController.text,
+                          "createdon":
+                              DateFormat.jm().format(DateTime.now()).toString(),
+                        };
+                        insertChatRecord(enteredMessage);
+                        scrollToBottom();
+                        txtController.clear();
+                      }
+                    }),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    const double minValue = 8.0;
-
-    insertChatRecord(Map<String, dynamic> messageData) {
-      databaseHelper.insertChatMessage(messageData).then((value) {
-        if (value == null) {
-          getChatData();
-          setState(() {});
-        }
-      });
-    }
-
-    //Used to jump to bottom of the list
-
-    void scrollToBottom() {
-      final bottomOffset = scrollController!.position.minScrollExtent;
-      scrollController!.animateTo(
-        bottomOffset,
-        duration: const Duration(milliseconds: 1000),
-        curve: Curves.easeInOut,
-      );
-    }
-
-    Widget _buildBottomSection() {
-      return Row(
-        children: <Widget>[
-          Expanded(
-            child: Container(
-              height: 52,
-              margin: const EdgeInsets.all(minValue),
-              padding: const EdgeInsets.symmetric(horizontal: minValue),
-              decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.all(Radius.circular(minValue * 4))),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      keyboardType: TextInputType.text,
-                      controller: txtController,
-                      decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: "Type your message"),
-                      autofocus: false,
-                    ),
-                  ),
-                  IconButton(
-                      icon: const Icon(Icons.send),
-                      onPressed: () {
-                        if (txtController.text.isNotEmpty) {
-                          Map<String, dynamic> enteredMessage = {
-                            "description": txtController.text,
-                            "createdon": DateFormat.jm()
-                                .format(DateTime.now())
-                                .toString(),
-                          };
-                          insertChatRecord(enteredMessage);
-                          scrollToBottom();
-                          txtController.clear();
-                        }
-                      }),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -178,6 +184,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       controller: scrollController,
                       itemCount: chatData.length,
                       itemBuilder: (context, index) {
+                        print("the value of data");
                         return Container(
                           margin: const EdgeInsets.only(top: 10),
                           child: Column(

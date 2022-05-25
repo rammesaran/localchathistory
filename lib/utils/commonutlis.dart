@@ -1,4 +1,8 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 class CommonUtils {
+  static late SharedPreferences sharedPreferences;
+
   String queryBuilder(
       String operationMode, String tableName, String attributes) {
     late String query;
